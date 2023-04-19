@@ -10,6 +10,8 @@
 #include <ctype.h>
 #include <errno.h>
 #include <limits.h>
+#include <sys/stat.h>
+#include <time.h>
 
 #include <assert.h>
 #include <sys/types.h>
@@ -30,6 +32,40 @@ bool external_pongo = false;
 char* ext_checkra1n = NULL;
 
 #define tmpdir getenv("TMPDIR") == NULL ? "/tmp" : getenv("TMPDIR")
+
+static const char charset[] = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
+
+int rand_char() {
+    return charset[rand() % (sizeof(charset) - 1)];
+}
+
+int mkstemp(char *template) {
+    size_t len = strlen(template);
+    if (len < 6) {
+        return -1;
+    }
+
+    for (int i = len - 6; i < len; ++i) {
+        if (template[i] != 'X') {
+            return -1;
+        }
+    }
+
+    srand(time(NULL));
+
+    for (int retries = 0; retries < 10000; ++retries) {
+        for (int i = len - 6; i < len; ++i) {
+            template[i] = rand_char();
+        }
+
+        int fd = open(template, O_RDWR | O_CREAT | O_EXCL, S_IRUSR | S_IWUSR);
+        if (fd != -1) {
+            return fd;
+        }
+    }
+
+    return -1;
+}
 
 int exec_checkra1n(void) {
 	LOG(LOG_INFO, "About to execute checkra1n");
