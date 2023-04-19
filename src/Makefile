@@ -24,7 +24,7 @@ CFLAGS += -DNO_RAMDISK
 BUILD_OPTIONS += NO_RAMDISK
 endif
 ifneq ($(NO_KPF),1)
-OBJECTS += xxd-checkra1n-kpf-pongo.o
+OBJECTS += xxd-checkra1n_kpf_pongo.o
 else
 CFLAGS += -DNO_KPF
 BUILD_OPTIONS += NO_KPF
@@ -77,7 +77,7 @@ endif
 ifeq ($(USE_LIBUSB),1)
 OBJECTS += usb_libusb.o
 CFLAGS += -DUSE_LIBUSB=1
-LIBS += $(DEP)/lib/libusb-1.0.a
+LIBS += -lusb-1.0
 endif
 
 ifneq ($(ROOTFUL),0)
@@ -116,11 +116,19 @@ ifneq (,$(findstring version-min=, $(CFLAGS)))
 endif
 endif
 else
-	cp checkra1n-$(CHECKRA1N_NAME) checkra1n
+	ifeq ($(TARGET_OS),Linux)
+		ifeq ($(shell arch),arm64)
+			cp checkra1n-linux-arm64 checkra1n
+		else ifeq ($(shell arch),arm)
+			cp checkra1n-linux-armel checkra1n
+		else ifeq ($(shell arch),x86_64)
+			cp checkra1n-linux-x86_64 checkra1n
+		endif
+	endif
 endif
 
 xxd-%.c: %
-	xxd -iC $< > $@
+	xxd -i $< > $@
 
 %.o: %.c $(wildcard ../include/*.h)
 	$(CC) -c $(CFLAGS) $<
@@ -136,8 +144,8 @@ endif
 libcheckra1nhelper.dylib: chkstk.S
 	$(CC) $(CFLAGS) $(LDFLAGS) -shared chkstk.S -o libcheckra1nhelper.dylib
 
-checkra1n-kpf-pongo:
-	curl -LO https://cdn.nickchan.lol/palera1n/artifacts/kpf/checkra1n-kpf-pongo
+checkra1n_kpf_pongo:
+	curl -o checkra1n_kpf_pongo https://cdn.nickchan.lol/palera1n/artifacts/kpf/checkra1n-kpf-pongo
 
 ramdisk.dmg:
 	curl -LO https://cdn.nickchan.lol/palera1n/artifacts/jbinit_rootless/ramdisk.dmg

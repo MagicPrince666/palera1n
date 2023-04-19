@@ -3,12 +3,12 @@ NAME = bakepale
 SRC = $(shell pwd)
 DEP = $(SRC)/dep_root
 STRIP = strip
-CC ?= cc
-CFLAGS += -I$(DEP)/include -I$(SRC)/include -I$(SRC)
+CC ?= gcc
+CFLAGS += -I$(SRC)/include -I$(SRC)
 CFLAGS += -Wall -Wextra -DPALERAIN_VERSION=\"2.0.0\" -Wall -Wextra -Wno-unused-parameter
 CFLAGS += -Wno-unused-variable -I$(SRC)/src -std=c99 -pedantic-errors -D_C99_SOURCE -D_POSIX_C_SOURCE=200112L
-LIBS += $(DEP)/lib/libimobiledevice-1.0.a $(DEP)/lib/libirecovery-1.0.a $(DEP)/lib/libusbmuxd-2.0.a
-LIBS += $(DEP)/lib/libimobiledevice-glue-1.0.a $(DEP)/lib/libplist-2.0.a -pthread
+LIBS += -limobiledevice-1.0 -lssl -lirecovery-1.0 -lusbmuxd-2.0
+LIBS += -limobiledevice-glue-1.0 -lplist-2.0 -pthread
 ifeq ($(TARGET_OS),)
 TARGET_OS = $(shell uname -s)
 endif
@@ -23,12 +23,13 @@ else
 CFLAGS += -fdata-sections -ffunction-sections
 LDFLAGS += -static -no-pie -Wl,--gc-sections
 endif
-LIBS += $(DEP)/lib/libmbedtls.a $(DEP)/lib/libmbedcrypto.a $(DEP)/lib/libmbedx509.a $(DEP)/lib/libreadline.a
+
+LIBS += -lmbedtls -lmbedcrypto -lmbedx509 -lreadline
 
 ifeq ($(TUI),1)
-LIBS += $(DEP)/lib/libnewt.a $(DEP)/lib/libpopt.a $(DEP)/lib/libslang.a
+LIBS += -lnewt -lpopt -lslang
 ifeq ($(TARGET_OS),Linux)
-LIBS += $(DEP)/lib/libgpm.a
+LIBS += -lgpm
 endif
 endif
 ifeq ($(DEV_BUILD),1)
@@ -76,13 +77,13 @@ clean:
 	$(MAKE) -C docs clean
 
 download-deps:
-	$(MAKE) -C src checkra1n-macos checkra1n-linux-arm64 checkra1n-linux-armel checkra1n-linux-x86 checkra1n-linux-x86_64 checkra1n-kpf-pongo ramdisk.dmg binpack.dmg Pongo.bin
+	$(MAKE) -C src checkra1n-macos checkra1n-linux-arm64 checkra1n-linux-armel checkra1n-linux-x86 checkra1n-linux-x86_64 checkra1n_kpf_pongo ramdisk.dmg binpack.dmg Pongo.bin
 
 docs:
 	$(MAKE) -C docs
 
 distclean: clean
-	rm -rf palera1n-* palera1n*.dSYM src/checkra1n-* src/checkra1n-kpf-pongo src/ramdisk.dmg src/binpack.dmg src/Pongo.bin
+	rm -rf palera1n-* palera1n*.dSYM src/checkra1n-* src/checkra1n_kpf_pongo src/ramdisk.dmg src/binpack.dmg src/Pongo.bin
 
 .PHONY: all palera1n clean docs distclean
 
