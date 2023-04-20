@@ -119,7 +119,7 @@ endif
 endif
 else
 ifeq ($(TARGET_OS),Linux)
-	ifeq ($(ARCH),arm64)
+	ifeq ($(ARCH),aarch64)
 		cp checkra1n-linux-arm64 checkra1n
 	else ifeq ($(ARCH),arm)
 		cp checkra1n-linux-armel checkra1n
