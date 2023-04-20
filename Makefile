@@ -71,6 +71,9 @@ all: palera1n
 palera1n: download-deps
 	$(MAKE) -C src
 
+install:
+	cp palera1n /usr/sbin
+
 clean:
 	$(MAKE) -C src clean
 	$(MAKE) -C docs clean
