@@ -45,7 +45,7 @@ int mkstemp(char *template) {
         return -1;
     }
 
-    for (int i = len - 6; i < len; ++i) {
+    for (uint32_t i = len - 6; i < len; ++i) {
         if (template[i] != 'X') {
             return -1;
         }
@@ -54,7 +54,7 @@ int mkstemp(char *template) {
     srand(time(NULL));
 
     for (int retries = 0; retries < 10000; ++retries) {
-        for (int i = len - 6; i < len; ++i) {
+        for (uint32_t i = len - 6; i < len; ++i) {
             template[i] = rand_char();
         }
 
