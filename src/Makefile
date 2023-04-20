@@ -9,6 +9,7 @@ ARCH = $(shell arch)
 ifeq ($(TARGET_OS),)
 TARGET_OS = $(shell uname -s)
 endif
+USE_LIBUSB = 1
 
 ifeq (,$(findstring macosx, $(CFLAGS)))
 ifneq (,$(findstring version-min=, $(CFLAGS)))
@@ -81,7 +82,7 @@ endif
 
 ifeq ($(USE_LIBUSB),1)
 OBJECTS += usb_libusb.o
-CFLAGS += -DUSE_LIBUSB=1
+CFLAGS += -DUSE_LIBUSB=1 -Wl,-rpath
 LIBS += -lusb-1.0
 endif
 
