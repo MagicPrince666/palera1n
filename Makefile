@@ -20,7 +20,7 @@ LDFLAGS += -Wl,-dead_strip
 LIBS += -framework CoreFoundation -framework IOKit
 else
 CFLAGS += -fdata-sections -ffunction-sections
-LDFLAGS += -static -no-pie -Wl,--gc-sections
+LDFLAGS += -no-pie -Wl,--gc-sections
 endif
 
 LIBS += -lmbedtls -lmbedcrypto -lmbedx509 -lreadline
