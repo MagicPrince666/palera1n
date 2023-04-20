@@ -5,6 +5,8 @@ OBJECTS += optparse.o override_file.o log.o lock_vars.o credits.o
 OBJECTS += fake_embedded.o exec_checkra1n.o pongo_helper.o
 OBJECTS += boyermoore_memmem.o
 
+ARCH = $(shell arch)
+
 ifeq (,$(findstring macosx, $(CFLAGS)))
 ifneq (,$(findstring version-min=, $(CFLAGS)))
 OBJECTS += xxd-libcheckra1nhelper.dylib.o
@@ -101,10 +103,10 @@ ifneq (,$(findstring arm64, $(CFLAGS)))
 	$(LIPO) -thin arm64 -output checkra1n checkra1n-macos
 else ifneq (,$(findstring x86_64, $(CFLAGS)))
 	$(LIPO) -thin x86_64 -output checkra1n checkra1n-macos
-else ifeq ($(shell arch),i386)
+else ifeq ($(ARCH),i386)
 	$(LIPO) -thin x86_64 -output checkra1n checkra1n-macos
 else
-	$(LIPO) -thin $(shell arch) -output checkra1n checkra1n-macos
+	$(LIPO) -thin $(ARCH) -output checkra1n checkra1n-macos
 endif
 ifeq (,$(findstring macosx, $(CFLAGS)))
 ifneq (,$(findstring version-min=, $(CFLAGS)))
@@ -116,15 +118,15 @@ ifneq (,$(findstring version-min=, $(CFLAGS)))
 endif
 endif
 else
-	ifeq ($(TARGET_OS),Linux)
-		ifeq ($(shell arch),arm64)
-			cp checkra1n-linux-arm64 checkra1n
-		else ifeq ($(shell arch),arm)
-			cp checkra1n-linux-armel checkra1n
-		else ifeq ($(shell arch),x86_64)
-			cp checkra1n-linux-x86_64 checkra1n
-		endif
+ifeq ($(TARGET_OS),Linux)
+	ifeq ($(ARCH),arm64)
+		cp checkra1n-linux-arm64 checkra1n
+	else ifeq ($(ARCH),arm)
+		cp checkra1n-linux-armel checkra1n
+	else ifeq ($(ARCH),x86_64)
+		cp checkra1n-linux-x86_64 checkra1n
 	endif
+endif
 endif
 
 xxd-%.c: %
