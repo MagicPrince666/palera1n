@@ -1,14 +1,13 @@
 NAME = bakepale
 
 SRC = $(shell pwd)
-DEP = $(SRC)/dep_root
-STRIP = strip
-CC ?= gcc
+DEP = /usr/local/lib
+# CC ?= gcc
 CFLAGS += -I$(SRC)/include -I$(SRC)
 CFLAGS += -Wall -Wextra -DPALERAIN_VERSION=\"2.0.0\" -Wall -Wextra -Wno-unused-parameter
 CFLAGS += -Wno-unused-variable -I$(SRC)/src -std=c99 -pedantic-errors -D_C99_SOURCE -D_POSIX_C_SOURCE=200112L
-LIBS += -limobiledevice-1.0 -lssl -lirecovery-1.0 -lusbmuxd-2.0
-LIBS += -limobiledevice-glue-1.0 -lplist-2.0 -pthread
+LIBS += -L$(DEP) -limobiledevice-1.0 -lirecovery-1.0 -lusbmuxd-2.0
+LIBS += -limobiledevice-glue-1.0 -lplist-2.0 -lssl -lcrypto -lm -lrt -ldl -lpthread
 ifeq ($(TARGET_OS),)
 TARGET_OS = $(shell uname -s)
 endif
@@ -65,7 +64,7 @@ CFLAGS += -DBUILD_WHOAMI="\"$(BUILD_WHOAMI)\"" -DBUILD_TAG="\"$(BUILD_TAG)\""
 CFLAGS += -DBUILD_NUMBER="\"$(BUILD_NUMBER)\"" -DBUILD_BRANCH="\"$(BUILD_BRANCH)\""
 CFLAGS += -DBUILD_COMMIT="\"$(BUILD_COMMIT)\""
 
-export SRC DEP CC CFLAGS LDFLAGS LIBS TARGET_OS DEV_BUILD BUILD_DATE BUILD_TAG BUILD_WHOAMI BUILD_STYLE BUILD_NUMBER BUILD_BRANCH
+export SRC DEP CFLAGS LDFLAGS LIBS TARGET_OS DEV_BUILD BUILD_DATE BUILD_TAG BUILD_WHOAMI BUILD_STYLE BUILD_NUMBER BUILD_BRANCH
 
 all: palera1n
 

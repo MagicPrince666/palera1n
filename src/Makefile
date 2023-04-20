@@ -6,6 +6,9 @@ OBJECTS += fake_embedded.o exec_checkra1n.o pongo_helper.o
 OBJECTS += boyermoore_memmem.o
 
 ARCH = $(shell arch)
+ifeq ($(TARGET_OS),)
+TARGET_OS = $(shell uname -s)
+endif
 
 ifeq (,$(findstring macosx, $(CFLAGS)))
 ifneq (,$(findstring version-min=, $(CFLAGS)))
