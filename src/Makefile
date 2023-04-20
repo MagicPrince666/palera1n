@@ -118,17 +118,17 @@ ifneq (,$(findstring version-min=, $(CFLAGS)))
 endif
 endif
 else
-	ifeq ($(TARGET_OS),Linux)
-		ifeq ($(ARCH),aarch64)
-			cp checkra1n-linux-arm64 checkra1n
-		else ifeq ($(ARCH),armv7l)
-			cp checkra1n-linux-armel checkra1n
-		else ifeq ($(ARCH),x86_64)
-			cp checkra1n-linux-x86_64 checkra1n
-		else
-			echo "Not support yet!"
-		endif
-	endif
+ifeq ($(TARGET_OS),Linux)
+ifeq ($(ARCH),aarch64)
+	cp checkra1n-linux-arm64 checkra1n
+else ifeq ($(ARCH),armv7l)
+	cp checkra1n-linux-armel checkra1n
+else ifeq ($(ARCH),x86_64)
+	cp checkra1n-linux-x86_64 checkra1n
+else
+	echo "Not support yet!"
+endif
+endif
 endif
 
 xxd-%.c: %
