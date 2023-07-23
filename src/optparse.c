@@ -13,16 +13,15 @@
 #include <errno.h>
 #include <palerain.h>
 #include <sys/mman.h>
+#include <inttypes.h>
 
-checkrain_option_t host_flags = 0;
-checkrain_option_p host_flags_p = &host_flags;
+uint64_t* palerain_flags_p = &palerain_flags;
 static bool force_use_verbose_boot = false;
 
 static struct option longopts[] = {
-#ifdef ROOTFUL
 	{"setup-partial-fakefs", no_argument, NULL, 'B'},
 	{"setup-fakefs", no_argument, NULL, 'c'},
-#endif
+	{"clean-fakefs", no_argument, NULL, 'c'},
 	{"dfuhelper", no_argument, NULL, 'D'},
 	{"help", no_argument, NULL, 'h'},
 	{"pongo-shell", no_argument, NULL, 'p'},
@@ -30,11 +29,8 @@ static struct option longopts[] = {
 	{"debug-logging", no_argument, NULL, 'v'},
 	{"verbose-boot", no_argument, NULL, 'V'},
 	{"boot-args", required_argument, NULL, 'e'},
-#ifdef ROOTFUL
 	{"fakefs", no_argument, NULL, 'f'},
-#endif
 	{"rootless", no_argument, NULL, 'l'},
-	{"jbinit-log-to-file", no_argument, NULL, 'L'},
 	{"demote", no_argument, NULL, 'd'},
 	{"force-revert", no_argument, NULL, palerain_option_case_force_revert},
 	{"no-colors", no_argument, NULL, 'S'},
@@ -63,19 +59,19 @@ static int usage(int e, char* prog_name)
 {
 	fprintf(stderr,
 	"Usage: %s [-"
-	"DEhpvVldsSLRnPI"
+	"DEhpvVdsSLRnPI"
 #ifdef DEV_BUILD
 			"12"
 #endif
 #ifdef ROOTFUL
-			"cfB"
+			"cCfBl"
 #endif
 #ifdef TUI
 			"t"
 #endif
 			"] [-e boot arguments] [-k Pongo image] [-o overlay file] [-r ramdisk file] [-K KPF file] [-i checkra1n file]\n"
 			"Copyright (C) 2023, palera1n team, All Rights Reserved.\n\n"
-			"iOS/iPadOS 15.0-16.4.1 arm64 jailbreaking tool\n\n"
+			"iOS/iPadOS 15.0-16.5.1 arm64 jailbreaking tool\n\n"
 			"\t--version\t\t\t\tPrint version\n"
 			"\t--force-revert\t\t\t\tRemove jailbreak\n"
 #ifdef DEV_BUILD
@@ -85,6 +81,7 @@ static int usage(int e, char* prog_name)
 #ifdef ROOTFUL
 			"\t-B, --setup-partial-fakefs\t\tSetup partial fakefs\n"
 			"\t-c, --setup-fakefs\t\t\tSetup fakefs\n"
+			"\t-C, --clean-fakefs\t\t\tClean fakefs\n"
 #endif
 			"\t-d, --demote\t\t\t\tDemote\n"
 			"\t-D, --dfuhelper\t\t\t\tExit after entering DFU\n"
@@ -97,7 +94,9 @@ static int usage(int e, char* prog_name)
 			"\t-i, --override-checkra1n <file>\t\tOverride checkra1n\n"
 			"\t-k, --override-pongo <file>\t\tOverride Pongo image\n"
 			"\t-K, --override-kpf <file>\t\tOverride kernel patchfinder\n"
+#ifdef ROOTFUL
 			"\t-l, --rootless\t\t\t\tBoots rootless. This is the default\n"
+#endif
 			"\t-L, --jbinit-log-to-file\t\tMake jbinit log to /cores/jbinit.log (can be read from sandbox while jailbroken)\n"
 			"\t-n, --exit-recovery\t\t\tExit recovery mode\n"
 			"\t-I, --device-info\t\t\tPrint info about the connected device\n"
@@ -126,35 +125,34 @@ int optparse(int argc, char* argv[]) {
 	int opt;
 	int index;
 	while ((opt = getopt_long(argc, argv,
-	"DEhpvVldsSLtRnPIe:o:r:K:k:i:"
+	"DEhpvVlLdsStRnPIe:o:r:K:k:i:"
 #ifdef DEV_BUILD
 	"12"
 #endif
-#ifdef ROOTFUL
-	"fcB"
-#endif
+	"fCcB"
 	,longopts, NULL)) != -1)
 	{
 		switch (opt) {
-#ifdef ROOTFUL
 		case 'B':
 			palerain_flags |= palerain_option_setup_partial_root;
 			palerain_flags |= palerain_option_setup_rootful;
-			kpf_flags |= checkrain_option_verbose_boot;
+			palerain_flags |= palerain_option_verbose_boot;
 			break;
 		case 'c':
 			palerain_flags |= palerain_option_setup_rootful;
-			kpf_flags |= checkrain_option_verbose_boot;
+			palerain_flags |= palerain_option_verbose_boot;
 			break;
-#endif
+		case 'C':
+			palerain_flags |= palerain_option_clean_fakefs;
+			break;
 		case 'p':
-			host_flags |= host_option_pongo_exit;
+			palerain_flags |= palerain_option_pongo_exit;
 			break;
 		case 'P':
-			host_flags |= host_option_pongo_full;
+			palerain_flags |= palerain_option_pongo_full;
 			break;
 		case 'D':
-			host_flags |= host_option_dfuhelper_only;
+			palerain_flags |= palerain_option_dfuhelper_only;
 			break;
 		case 'h':
 			usage(0, argv[0]);
@@ -163,7 +161,7 @@ int optparse(int argc, char* argv[]) {
 			verbose++;
 			break;
 		case 'V':
-			kpf_flags |= checkrain_option_verbose_boot;
+			palerain_flags |= palerain_option_verbose_boot;
 			force_use_verbose_boot = true;
 			break;
 		case 'e':
@@ -176,29 +174,25 @@ int optparse(int argc, char* argv[]) {
             }
 			snprintf(xargs_cmd, sizeof(xargs_cmd), "xargs %s", optarg);
 			break;
-#ifdef ROOTFUL
 		case 'f':
-			snprintf(rootfs_cmd, sizeof(rootfs_cmd), "rootfs %s", optarg);
-			snprintf(dtpatch_cmd, 0x20, "dtpatch %s", optarg);
 			palerain_flags |= palerain_option_rootful;
+			palerain_flags &= ~palerain_option_rootless;
 			break;
-#endif
 		case 'l':
-#ifdef ROOTFUL
 			palerain_flags &= ~palerain_option_rootful;
-#endif
+			palerain_flags |= palerain_option_rootless;
 			break;
 		case 'L':
 			palerain_flags |= palerain_option_jbinit_log_to_file;
 			break;
 		case 'd':
-			host_flags |= host_option_demote;
+			palerain_flags |= palerain_option_demote;
 			break;
 		case 'E':
-			host_flags |= host_option_enter_recovery;
+			palerain_flags |= palerain_option_enter_recovery;
 			break;
 		case 's':
-			checkrain_flags |= checkrain_option_safemode;
+			palerain_flags |= palerain_option_safemode;
 			break;
 		case 'k':
 			if (access(optarg, F_OK) != 0) {
@@ -259,12 +253,12 @@ int optparse(int argc, char* argv[]) {
 			}
 			if (boyermoore_horspool_memmem(addr, st.st_size, (const unsigned char*)"[ra1npoc15-part] thanks to", strlen("[ra1npoc15-part] thanks to")) != NULL) 
 				{
-					host_flags |= palerain_option_checkrain_is_clone;
+					palerain_flags |= palerain_option_checkrain_is_clone;
 					LOG(LOG_VERBOSE3, "%s is checkra1n clone", optarg);
 				}
 			else
 			{
-				host_flags &= ~palerain_option_checkrain_is_clone;
+				palerain_flags &= ~palerain_option_checkrain_is_clone;
 				LOG(LOG_VERBOSE3, "%s is checkra1n", optarg);
 			}
 			munmap(addr, st.st_size);
@@ -273,20 +267,20 @@ int optparse(int argc, char* argv[]) {
 			snprintf(ext_checkra1n, strlen(optarg) + 1, "%s", optarg);
 			break;
 		case 'R':
-			host_flags |= host_option_reboot_device;
+			palerain_flags |= palerain_option_reboot_device;
 			break;
 		case 'n':
-			host_flags |= host_option_exit_recovery;
+			palerain_flags |= palerain_option_exit_recovery;
 			break;
 		case 'I':
-			host_flags |= host_option_device_info;
+			palerain_flags |= palerain_option_device_info;
 			break;
 		case 'S':
-			host_flags |= host_option_no_colors;
+			palerain_flags |= palerain_option_no_colors;
 			break;
 #ifdef TUI
 		case 't':
-			host_flags |= host_option_tui;
+			palerain_flags |= palerain_option_tui;
 			break;
 #endif
 #ifdef DEV_BUILD
@@ -298,17 +292,17 @@ int optparse(int argc, char* argv[]) {
 			break;
 #endif
 		case palerain_option_case_force_revert:
-			checkrain_flags |= checkrain_option_force_revert;
+			palerain_flags |= palerain_option_force_revert;
 			break;
 		case palerain_option_case_version:
-			host_flags |= host_option_palerain_version;
+			palerain_flags |= palerain_option_palerain_version;
 			break;
 		default:
 			usage(1, argv[0]);
 			break;
 		}
 	}
-	if (checkrain_options_enabled(host_flags, host_option_palerain_version)) {
+	if ((palerain_flags & palerain_option_palerain_version)) {
 		printf(
 			"palera1n " PALERAIN_VERSION "\n"
 			BUILD_COMMIT " " BUILD_NUMBER " (" BUILD_BRANCH ")\n\n"
@@ -326,17 +320,12 @@ int optparse(int argc, char* argv[]) {
 		return 0;
 	}
 
-	if ((strstr(xargs_cmd, "serial=") != NULL) && !force_use_verbose_boot && checkrain_options_enabled(palerain_flags, palerain_option_setup_rootful)) {
-		kpf_flags &= ~checkrain_option_verbose_boot;
+	if ((strstr(xargs_cmd, "serial=") != NULL) && !force_use_verbose_boot && (palerain_flags & palerain_option_setup_rootful)) {
+		palerain_flags &= ~palerain_option_verbose_boot;
 	}
     
-	snprintf(checkrain_flags_cmd, 0x20, "checkra1n_flags 0x%x", checkrain_flags);
-	snprintf(palerain_flags_cmd, 0x20, "palera1n_flags 0x%x", palerain_flags);
-	snprintf(kpf_flags_cmd, 0x20, "kpf_flags 0x%x", kpf_flags);
-	LOG(LOG_VERBOSE3, "checkrain_flags: %s", checkrain_flags_cmd);
+	snprintf(palerain_flags_cmd, 0x30, "palera1n_flags 0x%" PRIx64, palerain_flags);
 	LOG(LOG_VERBOSE3, "palerain_flags: %s", palerain_flags_cmd);
-	LOG(LOG_VERBOSE3, "kpf_flags: %s", kpf_flags_cmd);
-	LOG(LOG_VERBOSE3, "host_flags: 0x%x", host_flags);
 	if (override_kpf.magic == OVERRIDE_MAGIC) {
 		LOG(LOG_VERBOSE4, "kpf override length %u -> %u", override_kpf.orig_len, checkra1n_kpf_pongo_len);
 		LOG(LOG_VERBOSE4, "kpf override ptr %p -> %p", override_kpf.orig_ptr, **kpf_to_upload);
@@ -350,17 +339,17 @@ int optparse(int argc, char* argv[]) {
 		LOG(LOG_VERBOSE4, "overlay override ptr %p -> %p", override_overlay.orig_ptr, **overlay_to_upload);
 	}
 
-	if (!checkrain_options_enabled(palerain_flags, palerain_option_rootful)) {
-		if (checkrain_options_enabled(palerain_flags, palerain_option_setup_rootful) || checkrain_options_enabled(palerain_flags, palerain_option_setup_rootful_forced)) {
+	if (!(palerain_flags & palerain_option_rootful)) {
+		if ((palerain_flags & palerain_option_setup_rootful)) {
 			LOG(LOG_FATAL, "Cannot setup rootful when rootless is requested. Use -f to enable rootful mode.");
 			return -1;
 		}
 	}
 	if (!(
-			checkrain_options_enabled(host_flags, host_option_dfuhelper_only) ||
-			checkrain_options_enabled(host_flags, host_option_enter_recovery) ||
-			checkrain_options_enabled(host_flags, host_option_exit_recovery) ||
-			checkrain_options_enabled(host_flags, host_option_reboot_device)))
+			(palerain_flags & palerain_option_dfuhelper_only) ||
+			(palerain_flags & palerain_option_enter_recovery) ||
+			(palerain_flags & palerain_option_exit_recovery) ||
+			(palerain_flags & palerain_option_reboot_device)))
 	{
 #ifdef NO_CHECKRAIN
 		if (checkra1n_len == 0 && ext_checkra1n == NULL)
@@ -368,7 +357,7 @@ int optparse(int argc, char* argv[]) {
 			LOG(LOG_FATAL, "checkra1n omitted in build but no override specified");
 			return -1;
 		}
-		if (!(checkrain_options_enabled(host_flags, host_option_pongo_exit) || checkrain_options_enabled(host_flags, host_option_pongo_exit)))
+		if (!((palerain_flags & palerain_option_pongo_exit) || (palerain_flags & palerain_option_pongo_exit)))
 		{
 #ifdef NO_KPF
 			if (checkra1n_kpf_pongo_len == 0)

@@ -11,7 +11,7 @@
 #include <locale.h>
 #include <unistd.h>
 #include <newt.h>
-#include <kerninfo.h>
+#include <paleinfo.h>
 
 #define WIDTH 76
 #define HEIGHT 19
@@ -20,7 +20,7 @@
 #define PI_STEP_CURRENT NEWT_COLORSET_CUSTOM(1)
 #define PI_STEP_OTHER NEWT_COLORSET_CUSTOM(2)
 
-#define CHECKBOX_STATE(flags, opt) checkrain_options_enabled(flags, opt) ? '*' : ' '
+#define CHECKBOX_STATE(flags, opt) (flags & opt) != 0 ? '*' : ' '
 
 typedef enum tui_screens {
     ERROR_SCREEN = -1,
@@ -33,17 +33,17 @@ typedef enum tui_screens {
 } tui_screen_t;
 
 typedef struct bitfield_checkbox_info {
-    checkrain_option_p flags_p;
-    checkrain_option_t opt;
+    uint64_t* flags_p;
+    uint64_t opt;
 } tui_bit_info_t;
 
-tui_screen_t tui_screen_main();
-tui_screen_t tui_screen_options();
-tui_screen_t tui_screen_enter_recovery();
-tui_screen_t tui_screen_enter_dfu();
-tui_screen_t tui_screen_jailbreak();
+tui_screen_t tui_screen_main(void);
+tui_screen_t tui_screen_options(void);
+tui_screen_t tui_screen_enter_recovery(void);
+tui_screen_t tui_screen_enter_dfu(void);
+tui_screen_t tui_screen_jailbreak(void);
 
-int redraw_screen();
+int redraw_screen(void);
 
 
 #endif

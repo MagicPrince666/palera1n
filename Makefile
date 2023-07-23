@@ -1,4 +1,4 @@
-NAME = bakepale
+NAME = Dusk
 
 SRC = $(shell pwd)
 DEP = /usr/local/lib

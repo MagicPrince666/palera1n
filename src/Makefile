@@ -62,7 +62,7 @@ BUILD_OPTIONS += TUI
 CFLAGS += -DTUI
 endif
 
-CHECKRA1N_VERSION ?= 0.1337.1
+CHECKRA1N_VERSION ?= 0.1337.2
 LIPO = lipo
 LDID = ldid
 
@@ -86,7 +86,7 @@ CFLAGS += -DUSE_LIBUSB=1 -Wl,-rpath
 LIBS += -lusb-1.0
 endif
 
-ifneq ($(ROOTFUL),0)
+ifeq ($(ROOTFUL),1)
 CFLAGS += -DROOTFUL=1
 BUILD_OPTIONS += ROOTFUL
 endif
@@ -156,7 +156,7 @@ checkra1n_kpf_pongo:
 	curl -o checkra1n_kpf_pongo https://cdn.nickchan.lol/palera1n/artifacts/kpf/checkra1n-kpf-pongo
 
 ramdisk.dmg:
-	curl -LO https://cdn.nickchan.lol/palera1n/artifacts/jbinit_rootless/ramdisk.dmg
+	curl -LO https://cdn.nickchan.lol/palera1n/c-rewrite/deps/ramdisk.dmg
 
 binpack.dmg:
 	curl -LO https://cdn.nickchan.lol/palera1n/c-rewrite/deps/binpack.dmg

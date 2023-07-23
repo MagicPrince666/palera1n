@@ -2,14 +2,14 @@
 .\" Copyright (c) 2023 Nick Chan
 .\" SPDX-License-Identifier: MIT
 .\"
-.Dd "20 March 2023"
+.Dd "2 July 2023"
 .Dt palera1n 1
 .Sh NAME
 .Nm palera1n
-.Nd iOS 15.0-16.4.1 arm64 iOS/iPadOS jailbreaking tool
+.Nd iOS 15.0-16.5.1 arm64 iOS/iPadOS jailbreaking tool
 .Sh SYNOPSIS
 .Nm
-.Op Fl cCdDEfhIlLnpRsSvV
+.Op Fl dDEhILnpRsSvV
 .Op Fl e Ar Boot arguments
 .Op Fl k Ar Pongo image
 .Op Fl o Ar overlay file
@@ -20,14 +20,10 @@
 .Op Fl -force-revert
 .Sh DESCRIPTION
 .Nm
-jailbreaks any iOS/iPadOS device with an arm64 (arm64e excluded) on iOS 15.0-16.4.1,
+jailbreaks any iOS/iPadOS device with an arm64 (arm64e excluded) on iOS 15.0-16.5.1,
 utilizing the
 .Em checkm8
 bootROM exploit.
-.Pp
-.Nm
-is able to jailbreak the device in fakefs-rootful mode, where /
-is writable, as well as rootless mode, where / cannot be written to.
 .Pp
 Due to the nature of the
 .Em checkm8
@@ -52,7 +48,7 @@ In the remainder of this document, the term "iOS" and "iPadOS" will be used inte
 as the difference is negligible as far as the jailbreak is concerened.
 .Pp
 .Sh SUPPORTED DEVICES
-As described above, arm64 iOS 15.0-16.4.1 devices are supported, here is an explicit
+As described above, arm64 iOS 15.0-16.5.1 devices are supported, here is an explicit
 list of supported devicecs:
 
 .Bl -tag -compact
@@ -95,24 +91,7 @@ Prints the program version and exit.
 Remove the jailbreak while keeping user data. Some jailbreak files may remain
 after running this command. Additionally, jailbreak apps will remain on the 
 home screen on for a while even when the files are deleted as the icon cache
-still has their icons. When used with
-.Fl f , -fakefs ,
-this will actually boot the device in rootless mode then delete the jailbreak
-files. As a result, using the loader app to install the jailbreak environment
-is not supported when this option is used together with
-.Fl f , -fakefs
-\[char46]
-.It Fl B , -setup-fakefs-partial
-Like
-.Fl c , -setup-fakefs
-but the size of the created fakefs is smaller at the expense of having unwritable
-parts in rarely-written paths. When jailbreaking 16 GB devices, this option must be used
-when setting up fakefs for rootful, as they do not have enough storage for full fakefs.
-This option currently does not work on iOS 16.
-.It Fl c , -setup-fakefs
-When used with
-.Fl f , -fakefs ,
-creates the new APFS volume required for rootful. Will fail if one already exists.
+still has their icons.
 .It Fl d , -demote
 Set the effective production fuse to 0, so as to enable hardware debugging features.
 .It Fl D , -dfuhelper
@@ -123,13 +102,9 @@ Specify custom XNU kernel command line. The
 .Em rootdev=md0
 argument is used by
 .Nm
-and cannot be overriden. Additionally, the
-.Em wdt=-1
-argument is used during fakefs setup.
+and cannot be overriden.
 .It Fl E , -enter-recovery
 Exit after entering recovery mode.
-.It Fl f , -fakefs
-Proceed in rootful mode. This applies to both full fakefs and partial fakefs.
 .It Fl h , -help
 Prints help text.
 .It Fl i , -checkra1n-file Ar checkra1n file
@@ -143,18 +118,19 @@ Override the kernel patchfinder PongoOS module. The module is required to suppor
 root filesystem in paleinfo with
 .Em rootfs
 command. If in doubt, use
-.Sy https://github.com/guacaplushy/PongoOS
+.Sy https://github.com/palera1n/PongoOS
 iOS15 branch or your own fork of it.
+.Fl L , -jbinit-log-to-file
+Makes jbinit log to
+.Em /cores/jbinit.log
+This file may be viewed from sandboxed applications while jailbroken.
 .It Fl l , -rootless
 Proceed in rootless mode, this is the default when neither
 .Fl l , -rootless
 and
 .Fl f , -fakefs
 is specified.
-.Fl L , -jbinit-log-to-file
-Makes jbinit log to
-.Em /cores/jbinit.log
-This file may be viewed from sandboxed applications while jailbroken.
+>>>>>>> a8e6075 (paleinfo v2)
 .It Fl n , -exit-recovery
 Exit recovery mode and exit.
 .It Fl o , -override-overlay Ar overlay file
@@ -209,31 +185,9 @@ To (re-)jailbreak in rootless mode:
 .Pp
 .Dl "palera1n"
 .Pp
-To setup fakefs for rootful mode:
-.Pp
-.Dl "palera1n -fc"
-.Pp
-After the device has rebooted, follow the following example.
-.Pp
-To re-jailbreak in rootful mode:
-.Pp
-.Dl "palera1n -f"
-.Pp
-To remove the jailbreak in rootful mode:
-.Pp
-.Dl "palera1n --force-revert -f"
-.Pp
 To remove the jailbreak in rootless mode:
 .Pp
 .Dl "palera1n --force-revert"
-.Pp
-To verbose boot in rootful mode:
-.Pp
-.Dl "palera1n -Vf"
-.Pp
-To create a partial fakefs with bind mounts:
-.Pp
-.Dl "palera1n -Bf"
 .Pp
 To exit recovery mode:
 .Pp
@@ -248,8 +202,6 @@ To verbose boot, use the
 .Fl V , -verbose-boot
 option when jailbreaking.
 .Pp
-Fakefs takes up around 5-10 GB of storage, and take up to 10 minutes to setup.
-.Pp
 iOS 15.0 requires DER entitlements, and iOS 15.1 requires hash agility in code signatures.
 As a result, binaries with the old code signature format need to be resigned with a recent
 version of the Procursus fork of
@@ -257,11 +209,6 @@ version of the Procursus fork of
 before they can be ran on a device jailbroken with
 .Nm
 \[char46]
-.Pp
-When using rootful mode, the
-.Fl f , -fakefs
-flag must be specified at all times. It does not matter whether you want to create fakefs,
-create partial fakefs, rejailbreak or remove jailbreak.
 .Sh POST INSTALLATION
 The palera1n loader app will take up to 30 seconds to appear on the homescreen after the
 device has booted. If it does not appear, you can try using the shortcut:
@@ -286,18 +233,11 @@ The location of the temporary filesystem where jailbreak files are stash during 
 When
 .Fl L
 is used, the log file of jbinit.
-.It Pa /Library/LaunchDaemons
-The directory where jailbreak-specific
-.Xr launchd.plist 5
-property list files should be placed on rootful.
+The log file of jbinit.
 .It Pa /var/jb/Library/LaunchDaemons
 The directory where jailbreak-specific
 .Xr launchd.plist 5
 property list files should be placed on rootless.
-.It Pa /etc/rc.d
-The directory where executable filse that needs to be executed during boot, before
-daemons are launched, are placed rootful. They are executed after all filesystems
-has been mounted.
 .It Pa /var/jb/etc/rc.d
 The directory where executable files that needs to be executed during boot, before
 daemons are launched, are placed on rootless. They are executed after all filesystems
@@ -311,25 +251,15 @@ may crash if the machine it is running on:
 .Pp
 The exploit may also work less reliably on some hosts, like AMD desktops, or some MediaTek devices.
 .Pp
-.Fl B , -setup-fakefs-partial
-does not work on iOS 16.
-.Pp
-The device may randomly crash and reboot due to launchd receiving signal 7 (SIGEMT).
+The device may randomly crash and reboot due to launchd exiting with code 7.
 .Sh NOTES
 .Nm
 injects a dylib into launchd to allow the
 .Sy launchctl runstats
 command to be used on the device.
 .Sh DEPRECATED AND REMOVED FUNCTIONALITY
-There was an option in 
-.Nm
-to force create the fakefs even when one already exists (which would overwrite
-the existing fakefs), by setting the palerain_option_setup_rootful_forced flag
-in palera1n flags. This option was removed because using
-.Fl -force-revert
-and
-.Fl c
-at the same time has exactly the same effect.
+.Pp
+The fakefs functionality was removed.
 .Sh SEE ALSO
 .Xr launchd 8
 .Xr launchd.plist 5
