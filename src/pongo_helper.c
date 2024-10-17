@@ -11,6 +11,9 @@
 #include <sys/stat.h>           // fstst
 
 #include <palerain.h>
+#ifdef TUI
+#include <tui.h>
+#endif
 #include <ANSI-color-codes.h>
 
 bool device_has_booted = 0;
@@ -33,53 +36,108 @@ void *pongo_usb_callback(stuff_t *arg) {
 	if (get_found_pongo())
 		return NULL;
 	set_found_pongo(1);
+#ifdef ROOTFUL
 	if ((palerain_flags & palerain_option_setup_rootful)) {
 		strncat(xargs_cmd, " wdt=-1", 0x270 - strlen(xargs_cmd) - 1);	
 	}
+#endif
 	LOG(LOG_INFO, "Found PongoOS USB Device");
+	if (palerain_flags & palerain_option_pongo_exit)
+		goto done;
+
 	usb_device_handle_t handle = arg->handle;
+#ifdef TUI
+	if (tui_is_jailbreaking) {
+		tui_jailbreak_stage = 4;
+    	tui_jailbreak_status = "Sending PongoOS commands";
+    	tui_jailbreak_status_changed();
+	}
+#endif
 	issue_pongo_command(handle, NULL);	
 	issue_pongo_command(handle, "fuse lock");
 	issue_pongo_command(handle, "sep auto");
-	upload_pongo_file(handle, **kpf_to_upload, checkra1n_kpf_pongo_len);
-	issue_pongo_command(handle, "modload");
-	issue_pongo_command(handle, palerain_flags_cmd);
-	if ((palerain_flags & palerain_option_rootful))
-	{
-		issue_pongo_command(handle, "rootfs");
+#ifdef TUI
+	if (tui_is_jailbreaking) {
+		tui_jailbreak_stage = 5;
+    	tui_jailbreak_status = "Sending KPF";
+    	tui_jailbreak_status_changed();
 	}
+#endif
+	upload_pongo_file(handle, **kpf_to_upload, checkra1n_kpf_pongo_lzma_len);
+	if (*kpf_to_upload == &checkra1n_kpf_pongo_lzma) {
+		issue_pongo_command(handle, "modload " KPF_UNCOMPRESSED_SIZE);
+	} else {
+		issue_pongo_command(handle, "modload");
+	}
+	issue_pongo_command(handle, palerain_flags_cmd);
 #ifdef NO_RAMDISK
-	if (ramdisk_dmg_len != 0)
+	if (ramdisk_dmg_lzma_len != 0)
 #endif
 	{
-		strncat(xargs_cmd, " rootdev=md0", 0x270 - strlen(xargs_cmd) - 1);
-		upload_pongo_file(handle, **ramdisk_to_upload, ramdisk_dmg_len);
-		issue_pongo_command(handle, "ramdisk");
+#ifdef TUI
+		if (tui_is_jailbreaking) {
+			tui_jailbreak_stage = 6;
+			tui_jailbreak_status = "Sending ramdisk";
+			tui_jailbreak_status_changed();
+		}
+#endif
+		upload_pongo_file(handle, **ramdisk_to_upload, ramdisk_dmg_lzma_len);
+		if ((*ramdisk_to_upload) == &ramdisk_dmg_lzma)
+			issue_pongo_command(handle, "ramdisk " RAMDISK_UNCOMPRESSED_SIZE);
+		else {
+			issue_pongo_command(handle, "ramdisk");
+		}
 	}
 #ifdef NO_OVERLAY
 	if (binpack_dmg_len != 0)
 #endif
 	{
+#ifdef TUI
+		if (tui_is_jailbreaking) {
+			tui_jailbreak_stage = 7;
+			tui_jailbreak_status = "Sending binpack";
+			tui_jailbreak_status_changed();
+		}
+#endif
 		upload_pongo_file(handle, **overlay_to_upload, binpack_dmg_len);
 		issue_pongo_command(handle, "overlay");
 	}
 	issue_pongo_command(handle, xargs_cmd);
 	if ((palerain_flags & palerain_option_pongo_full)) goto done;
+
+#ifdef TUI
+	if (tui_is_jailbreaking) {
+		tui_jailbreak_stage = 8;
+		tui_jailbreak_status = "Booting";
+		tui_jailbreak_status_changed();
+	}
+#endif
 	issue_pongo_command(handle, "bootx");
 	LOG(LOG_INFO, "Booting Kernel...");
+#ifdef ROOTFUL
 	if ((palerain_flags & palerain_option_setup_partial_root)) {
 		LOG(LOG_INFO, "Please wait up to 5 minutes for the bindfs to be created.");
-		LOG(LOG_INFO, "Once the device boots up to iOS, run again without the -B (Create BindFS) option to jailbreak.");
+		LOG(LOG_INFO, "Once the device reboots into recovery mode, run again without the -B (Create BindFS) option to jailbreak.");
 	} else if ((palerain_flags & palerain_option_setup_rootful)) {
 		LOG(LOG_INFO, "Please wait up to 10 minutes for the fakefs to be created.");
-		LOG(LOG_INFO, "Once the device boots up to iOS, run again without the -c (Create FakeFS) option to jailbreak.");
+		LOG(LOG_INFO, "Once the device reboots into recovery mode, run again without the -c (Create FakeFS) option to jailbreak.");
 	}
+#endif
 	if (dfuhelper_thr_running) {
 		pthread_cancel(dfuhelper_thread);
 		dfuhelper_thr_running = false;
 	}
 done:
 	device_has_booted = true;
+
+#ifdef TUI
+	if (tui_is_jailbreaking) {
+		tui_jailbreak_stage = 9;
+		tui_jailbreak_status = "All Done";
+		tui_is_jailbreaking = false;
+		tui_jailbreak_status_changed();
+	}
+#endif
 #ifdef USE_LIBUSB
 	libusb_unref_device(arg->dev);
 #endif

@@ -24,6 +24,9 @@
 
 #define palerain_option_case_version      palerain_option_case(0)
 #define palerain_option_case_force_revert palerain_option_case(1)
+#define palerain_option_case_libcheckra1nhelper_path palerain_option_case(2)
+#define palerain_option_case_cli		  palerain_option_case(3)
+
 
 #ifdef USE_LIBUSB
 #include <libusb-1.0/libusb.h>
@@ -32,7 +35,7 @@
 #define USB_RET_NOT_RESPONDING  LIBUSB_ERROR_OTHER
 #define USB_RET_IO              LIBUSB_ERROR_IO
 #define USB_RET_NO_DEVICE		LIBUSB_ERROR_NO_DEVICE
-typedef int usb_ret_t;
+typedef int32_t usb_ret_t;
 typedef libusb_device_handle *usb_device_handle_t;
 
 typedef struct stuff
@@ -69,7 +72,7 @@ usb_ret_t USBBulkUpload(usb_device_handle_t handle, void *data, uint32_t len);
 #endif
 
 #ifndef PALERAIN_VERSION
-#define PALERAIN_VERSION "2.0.0"
+#define PALERAIN_VERSION "2.0.2"
 #endif
 
 #if defined(__APPLE__)
@@ -80,8 +83,8 @@ usb_ret_t USBBulkUpload(usb_device_handle_t handle, void *data, uint32_t len);
 #define MH_CIGAM_64 0xcffaedfe
 #define MH_KEXT_BUNDLE 0xb
 
-typedef int cpu_type_t;
-typedef int cpu_subtype_t;
+typedef int32_t cpu_type_t;
+typedef int32_t cpu_subtype_t;
 
 #define CPU_ARCH_ABI64          0x01000000
 #define CPU_TYPE_ARM            ((cpu_type_t) 12)
@@ -131,7 +134,7 @@ typedef struct {
 
 typedef struct {
 	int mode;
-	unsigned int cpid;
+	int cpid;
 	char product_type[0x20];
 	char display_name[0x20];
 	char iboot_ver[0x20];
@@ -140,9 +143,9 @@ typedef struct {
 typedef struct {
 	uint32_t magic; /* 0xd803b376*/
 	unsigned char* ptr; /* pointer to the override file in memory */
-	unsigned int len; /* length of override file */
+	uint32_t len; /* length of override file */
 	unsigned char* orig_ptr; /* pointer to the overriden file */
-	unsigned int orig_len; /* length of the overriden file */
+	uint32_t orig_len; /* length of the overriden file */
 	int fd; /* file descriptor of the override file */
 } override_file_t;
 
@@ -224,9 +227,4 @@ void io_stop(stuff_t *stuff);
 
 void print_credits(void);
 
-#ifdef TUI
-#include <newt.h>
-newtComponent get_tui_log(void);
-newtComponent set_tui_log(newtComponent co);
-#endif
 #endif

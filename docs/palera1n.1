@@ -1,15 +1,15 @@
 .\"-
-.\" Copyright (c) 2023 Nick Chan
+.\" Copyright (c) 2024 Nick Chan
 .\" SPDX-License-Identifier: MIT
 .\"
-.Dd "2 July 2023"
+.Dd "24 July 2024"
 .Dt palera1n 1
 .Sh NAME
 .Nm palera1n
-.Nd iOS 15.0-16.5.1 arm64 iOS/iPadOS jailbreaking tool
+.Nd arm64 iOS/iPadOS/tvOS 15.0-18.1, bridgeOS 5.0-9.1 jailbreaking tool
 .Sh SYNOPSIS
 .Nm
-.Op Fl dDEhILnpRsSvV
+.Op Fl cCdDEfhIlLnpRsSTvV
 .Op Fl e Ar Boot arguments
 .Op Fl k Ar Pongo image
 .Op Fl o Ar overlay file
@@ -20,10 +20,19 @@
 .Op Fl -force-revert
 .Sh DESCRIPTION
 .Nm
-jailbreaks any iOS/iPadOS device with an arm64 (arm64e excluded) on iOS 15.0-16.5.1,
+jailbreaks an arm64 (arm64e excluded) iOS/iPadOS/tvOS 15.0-18.0, bridgeOS 5.0-9.0 device,
 utilizing the
 .Em checkm8
 bootROM exploit.
+.Pp
+.Nm
+provides rootful and rootless jailbreak modes.
+On iOS/iPadOS,
+.Nm
+is able to jailbreak the device in fakefs-rootful mode, where /
+is writable, as well as rootless mode, where / cannot be written to.
+On tvOS and bridgeOS,
+only rootful is supported, and it uses the actual filesystem instead of a fakefs.
 .Pp
 Due to the nature of the
 .Em checkm8
@@ -48,7 +57,7 @@ In the remainder of this document, the term "iOS" and "iPadOS" will be used inte
 as the difference is negligible as far as the jailbreak is concerened.
 .Pp
 .Sh SUPPORTED DEVICES
-As described above, arm64 iOS 15.0-16.5.1 devices are supported, here is an explicit
+As described above, arm64 iOS 15.0-18.0 devices are supported, here is an explicit
 list of supported devicecs:
 
 .Bl -tag -compact
@@ -78,8 +87,34 @@ list of supported devicecs:
 .It iPod Touch (7th generation)
 .El
 
-Support for other arm64 Darwin devices, including Apple TV, HomePod and iBridge
-on Darwin 21 and above could be added, but they are currently unsupported.
+.Bl -tag -compact
+.It Apple TV HD
+.It Apple TV 4K (1st generation)
+.El
+
+.Bl -tag -compact
+.It Apple T2 iMacPro1,1
+.It Apple T2 MacBookPro15,1
+.It Apple T2 MacBookPro15,2
+.It Apple T2 Macmini8,1
+.It Apple T2 MacPro7,1
+.It Apple T2 MacBookPro15,3
+.It Apple T2 MacBookAir8,1
+.It Apple T2 MacBookPro15,4
+.It iBridge2,11 (Unknown Mac)
+.It Apple T2 MacBookAir8,2
+.It iBridge2,13 (Unknown Mac)
+.It Apple T2 MacBookPro16,1
+.It Apple T2 MacBookAir9,1
+.It Apple T2 MacBookPro16,2
+.It Apple T2 iMac20,1
+.It Apple T2 iMac20,2
+.It Apple T2 MacBookPro16,3
+.It Apple T2 MacBookPro16,4
+.El
+
+Support for the A8 HomePod on Darwin 21 and above could be added,
+but it is currently unsupported.
 
 arm64e devices will NEVER be supported.
 
@@ -89,22 +124,44 @@ arm64e devices will NEVER be supported.
 Prints the program version and exit.
 .It Fl -force-revert
 Remove the jailbreak while keeping user data. Some jailbreak files may remain
-after running this command. Additionally, jailbreak apps will remain on the 
+after running this command. Additionally, jailbreak apps may remain on the
 home screen on for a while even when the files are deleted as the icon cache
-still has their icons.
+still has their icons. When used with
+.Fl f , -fakefs ,
+this will actually boot the device in rootless mode then delete the jailbreak
+files. As a result, using the loader app to install the jailbreak environment
+is not supported when this option is used together with
+.Fl f , -fakefs
+\[char46]
+.It Fl B , -setup-fakefs-partial
+Like
+.Fl c , -setup-fakefs
+but the size of the created fakefs is smaller at the expense of having unwritable
+parts in rarely-written paths. When jailbreaking 16 GB devices, this option must be used
+when setting up fakefs for rootful, as they do not have enough storage for full fakefs.
+This flag is only supported on iOS/iPadOS.
+.It Fl c , -setup-fakefs
+When used with
+.Fl f , -fakefs ,
+creates the new APFS volume required for rootful. Will fail if one already exists.
+This flag is only supported on iOS/iPadOS.
+.It Fl C , -clean-fakefs
+This option is not currently supported and is a no-operation in this version of
+.Nm
+\[char46]
 .It Fl d , -demote
 Set the effective production fuse to 0, so as to enable hardware debugging features.
 .It Fl D , -dfuhelper
 Execute the DFU helper to guide the user into putting the device into DFU mode
 then exit.
 .It Fl e , -boot-args Ar boot arguments
-Specify custom XNU kernel command line. The
-.Em rootdev=md0
-argument is used by
-.Nm
-and cannot be overriden.
+Specify custom XNU kernel command line. Additionally, the
+.Em wdt=-1
+argument is used during fakefs setup.
 .It Fl E , -enter-recovery
 Exit after entering recovery mode.
+.It Fl f , -fakefs
+Proceed in rootful mode. Despite its name, this applies to both full, partial fakefs, as well as realfs, and it still applies even when trying to force revert.
 .It Fl h , -help
 Prints help text.
 .It Fl i , -checkra1n-file Ar checkra1n file
@@ -120,17 +177,8 @@ root filesystem in paleinfo with
 command. If in doubt, use
 .Sy https://github.com/palera1n/PongoOS
 iOS15 branch or your own fork of it.
-.Fl L , -jbinit-log-to-file
-Makes jbinit log to
-.Em /cores/jbinit.log
-This file may be viewed from sandboxed applications while jailbroken.
 .It Fl l , -rootless
-Proceed in rootless mode, this is the default when neither
-.Fl l , -rootless
-and
-.Fl f , -fakefs
-is specified.
->>>>>>> a8e6075 (paleinfo v2)
+Proceed in rootless mode. This option is only supported on iOS/iPadOS.
 .It Fl n , -exit-recovery
 Exit recovery mode and exit.
 .It Fl o , -override-overlay Ar overlay file
@@ -149,21 +197,23 @@ Like
 .Fl p , -pongo-shell
 but default images and options have been uploaded and applied respectively.
 .It Fl r , -override-ramdisk Ar ramdisk file
-Override the ramdisk. At a very minimum, it should contain a
-.Em /sbin/launchd
+Override the ramdisk. At a very minimum, it should contain
+.Em /cores/ploosh
 as well as a fake dyld
 .Em /usr/lib/dyld
 where the logic is expected to be in.
 .It Fl R , -reboot-device
 Reboot device in normal mode and exit.
 .It Fl s , -safe-mode
-Enter safe mode. An alert will be displayed. Jailbreak daemons nor early boot executable files
+Enter safe mode. An alert will be displayed on iOS/iPadOS/tvOS. Jailbreak daemons nor early boot executable files
 specified (see
 .Sy FILES
 section below) will be executed. The loader app and the built in SSH server can still be used,
 as well as any jailbreak-specific apps you have installed.
 .It Fl S , -no-colors
 Disable colors on the command line. External programs like checkra1n clones may still output colors.
+.It Fl T , -telnetd
+Enable the TELNET daemon on port 46, all interfaces. Please note that there is no authentication and is therefore insecure.
 .It Fl v , -debug-logging
 Enable debug logging. The option may be repeated for extra verbosity.
 .It Fl V , -verbose-boot
@@ -183,11 +233,33 @@ is extracted and executed here. When not set, /tmp is used.
 .Sh EXAMPLES
 To (re-)jailbreak in rootless mode:
 .Pp
-.Dl "palera1n"
+.Dl "palera1n -l"
+.Pp
+To setup fakefs for rootful mode:
+.Pp
+.Dl "palera1n -fc"
+.Pp
+After the device has rebooted into recovery mode, follow the following example.
+.Pp
+To re-jailbreak in rootful mode:
+.Pp
+.Dl "palera1n -f"
+.Pp
+To remove the jailbreak in rootful mode:
+.Pp
+.Dl "palera1n --force-revert -f"
 .Pp
 To remove the jailbreak in rootless mode:
 .Pp
 .Dl "palera1n --force-revert"
+.Pp
+To verbose boot in rootful mode:
+.Pp
+.Dl "palera1n -Vf"
+.Pp
+To create a partial fakefs with bind mounts:
+.Pp
+.Dl "palera1n -Bf"
 .Pp
 To exit recovery mode:
 .Pp
@@ -202,6 +274,8 @@ To verbose boot, use the
 .Fl V , -verbose-boot
 option when jailbreaking.
 .Pp
+Fakefs takes up around 5-10 GB of storage, and take up to 10 minutes to setup.
+.Pp
 iOS 15.0 requires DER entitlements, and iOS 15.1 requires hash agility in code signatures.
 As a result, binaries with the old code signature format need to be resigned with a recent
 version of the Procursus fork of
@@ -209,17 +283,39 @@ version of the Procursus fork of
 before they can be ran on a device jailbroken with
 .Nm
 \[char46]
-.Sh POST INSTALLATION
-The palera1n loader app will take up to 30 seconds to appear on the homescreen after the
+.Pp
+When using rootful mode, the
+.Fl f , -fakefs
+flag must be specified at all times. It does not matter whether you want to create fakefs,
+create partial fakefs, rejailbreak or remove jailbreak.
+.Pp
+Due to a stock bug, using the
+.Fl V , -verbose-boot
+option might cause some versions for tvOS to crash and not boot.
+.Pp
+Offical Apple USB-C cables as well as some other USB-C cables cannot be used to enter DFU mode.
+USB-A cable with male USB-C to female USB-A adapter works fine.
+.Sh POST INSTALLATION (iOS/iPadOS)
+The palera1n loader app will take up to 1 minute to appear on the homescreen after the
 device has booted. If it does not appear, you can try using the shortcut:
 .Pp
 .Lk https://www.icloud.com/shortcuts/8cd5f489c8854ee0ab9ee38f2e62f87d
 .Pp
-to open it. After opening the loader app, press install to install a bootstrap as well as
-the
-.Em Sileo
-package manager.
-You can install other package managers from settings of the loader app.
+to open it. After opening the loader app, select a package manager to install.
+This will also bootstrap your device.
+.Pp
+A built-in SSH server runs on port 44 on loopback interfaces.
+.Sh POST INSTALLATION (tvOS)
+.Pp
+The palera1n loader app will appear on homescreen. Open the loader and select a package manager to install.
+This will also bootstrap your device.
+.Pp
+A built-in SSH server runs on port 44 on all interfaces.
+.Sh POST INSTALLATION (bridgeOS)
+.Pp
+A built-in SSH server runs on port 44 on all interfaces.
+.Pp
+Bootstrapping is currently not supported on this device.
 .Sh FILES
 During the jailbreak process, a temporary filesystem is mounted on /cores as a place
 to stash jailbreak files needed during the boot process. No files are ever written
@@ -228,16 +324,19 @@ loader app to install additional jailbreak files.
 
 .Bl -tag -width "/var/jb/Library/LaunchDaemons"
 .It Pa /cores
-The location of the temporary filesystem where jailbreak files are stash during boot.
-.It Pa /cores/jbinit.log
-When
-.Fl L
-is used, the log file of jbinit.
-The log file of jbinit.
+The location of the temporary filesystem where jailbreak files are stashed during boot.
+.It Pa /Library/LaunchDaemons
+The directory where jailbreak-specific
+.Xr launchd.plist 5
+property list files should be placed on rootful.
 .It Pa /var/jb/Library/LaunchDaemons
 The directory where jailbreak-specific
 .Xr launchd.plist 5
 property list files should be placed on rootless.
+.It Pa /etc/rc.d
+The directory where executable filse that needs to be executed during boot, before
+daemons are launched, are placed rootful. They are executed after all filesystems
+has been mounted.
 .It Pa /var/jb/etc/rc.d
 The directory where executable files that needs to be executed during boot, before
 daemons are launched, are placed on rootless. They are executed after all filesystems
@@ -251,19 +350,31 @@ may crash if the machine it is running on:
 .Pp
 The exploit may also work less reliably on some hosts, like AMD desktops, or some MediaTek devices.
 .Pp
-The device may randomly crash and reboot due to launchd exiting with code 7.
-.Sh NOTES
-.Nm
-injects a dylib into launchd to allow the
-.Sy launchctl runstats
-command to be used on the device.
-.Sh DEPRECATED AND REMOVED FUNCTIONALITY
+The built-in SSH server might be not accessible with password after bootstrapping rootful,
+since the bootstrap uses a custom crypt() function that is not supported
+by the built-in SSH server.
 .Pp
-The fakefs functionality was removed.
+There are no DFU instructions for iBridge T2 as there are no known ways to connect to the T2's USB
+interface when macOS has been booted.
+.Sh DEPRECATED AND REMOVED FUNCTIONALITY
+There was an option in
+.Nm
+to force create the fakefs even when one already exists (which would overwrite
+the existing fakefs), by setting the palerain_option_setup_rootful_forced flag
+in palera1n flags. This option was removed because using
+.Fl -force-revert
+and
+.Fl c
+at the same time has exactly the same effect.
+.Pp
+The hook that enabled
+.Sy launchctl runstats
+has been removed, since it leaks memory in launchd.
 .Sh SEE ALSO
 .Xr launchd 8
 .Xr launchd.plist 5
 .Xr ldid 1
+.Xr p1ctl 8
 .Sh HISTORY
 The
 .Nm
@@ -274,4 +385,5 @@ December 13, 2022. Later, the first attempt to rewrite palera1n into C begins on
 01 2023. The
 .Nm
 utility described here is the second attempt, which first started on January 16, 2023,
-using checkra1n 1337 and the plush KPF.
+using checkra1n 1337 and a custom KPF.
+Something happened on August 15, 2023.

@@ -14,14 +14,18 @@
 #include <palerain.h>
 #include <sys/mman.h>
 #include <inttypes.h>
+#ifdef TUI
+#include <tui.h>
+#endif
 
 uint64_t* palerain_flags_p = &palerain_flags;
 static bool force_use_verbose_boot = false;
+char* gOverrideLibcheckra1nHelper = NULL;
 
 static struct option longopts[] = {
 	{"setup-partial-fakefs", no_argument, NULL, 'B'},
 	{"setup-fakefs", no_argument, NULL, 'c'},
-	{"clean-fakefs", no_argument, NULL, 'c'},
+	{"clean-fakefs", no_argument, NULL, 'C'},
 	{"dfuhelper", no_argument, NULL, 'D'},
 	{"help", no_argument, NULL, 'h'},
 	{"pongo-shell", no_argument, NULL, 'p'},
@@ -35,7 +39,9 @@ static struct option longopts[] = {
 	{"force-revert", no_argument, NULL, palerain_option_case_force_revert},
 	{"no-colors", no_argument, NULL, 'S'},
 	{"safe-mode", no_argument, NULL, 's'},
+	{"telnetd", no_argument, NULL, 'T'},
 	{"version", no_argument, NULL, palerain_option_case_version},
+	{"override-libcheckra1nhelper", required_argument, NULL, palerain_option_case_libcheckra1nhelper_path},
 	{"override-pongo", required_argument, NULL, 'k'},
 	{"override-overlay", required_argument, NULL, 'o'},
 	{"override-ramdisk", required_argument, NULL, 'r'},
@@ -52,6 +58,7 @@ static struct option longopts[] = {
 #ifdef TUI
 	{"tui", no_argument, NULL, 't'},
 #endif
+	{"cli", no_argument, NULL, palerain_option_case_cli},
 	{NULL, 0, NULL, 0}
 };
 
@@ -59,19 +66,19 @@ static int usage(int e, char* prog_name)
 {
 	fprintf(stderr,
 	"Usage: %s [-"
-	"DEhpvVdsSLRnPI"
+	"DEhpvVldsSTLRnPI"
 #ifdef DEV_BUILD
 			"12"
 #endif
 #ifdef ROOTFUL
-			"cCfBl"
+			"cCfB"
 #endif
 #ifdef TUI
 			"t"
 #endif
 			"] [-e boot arguments] [-k Pongo image] [-o overlay file] [-r ramdisk file] [-K KPF file] [-i checkra1n file]\n"
-			"Copyright (C) 2023, palera1n team, All Rights Reserved.\n\n"
-			"iOS/iPadOS 15.0-16.5.1 arm64 jailbreaking tool\n\n"
+			"Copyright (C) 2024, palera1n team, All Rights Reserved.\n\n"
+			"iOS/iPadOS/tvOS 15.0-18.1, bridgeOS 5.0-9.1 arm64 jailbreaking tool\n\n"
 			"\t--version\t\t\t\tPrint version\n"
 			"\t--force-revert\t\t\t\tRemove jailbreak\n"
 #ifdef DEV_BUILD
@@ -107,12 +114,14 @@ static int usage(int e, char* prog_name)
 			"\t-R, --reboot-device\t\t\tReboot connected device in normal mode\n"
 			"\t-s, --safe-mode\t\t\t\tEnter safe mode\n"
 			"\t-S, --no-colors\t\t\t\tDisable colors on the command line\n"
+			"\t-T, --telnetd\t\t\t\tEnable TELNET daemon on port 46 (insecure)\n"
 			"\t-v, --debug-logging\t\t\tEnable debug logging\n"
 			"\t\tThis option can be repeated for extra verbosity.\n"
 			"\t-V, --verbose-boot\t\t\tVerbose boot\n"
 
 #ifdef TUI
-			"\t-t, --tui\t\t\t\tTerminal user interface\n"
+			"\t-t, --tui\t\t\t\tForce interactive TUI\n"
+			"\t--cli\t\t\t\t\tForce cli mode\n"
 #endif
 		"\nEnvironmental variables:\n"
 		"\tTMPDIR\t\ttemporary diretory (path the built-in checkra1n will be extracted to)\n"
@@ -125,14 +134,17 @@ int optparse(int argc, char* argv[]) {
 	int opt;
 	int index;
 	while ((opt = getopt_long(argc, argv,
-	"DEhpvVlLdsStRnPIe:o:r:K:k:i:"
+	"DEhpvVlLdsSTtRnPIe:o:r:K:k:i:"
 #ifdef DEV_BUILD
 	"12"
 #endif
+#ifdef ROOTFUL
 	"fCcB"
+#endif
 	,longopts, NULL)) != -1)
 	{
 		switch (opt) {
+#ifdef ROOTFUL
 		case 'B':
 			palerain_flags |= palerain_option_setup_partial_root;
 			palerain_flags |= palerain_option_setup_rootful;
@@ -145,6 +157,7 @@ int optparse(int argc, char* argv[]) {
 		case 'C':
 			palerain_flags |= palerain_option_clean_fakefs;
 			break;
+#endif
 		case 'p':
 			palerain_flags |= palerain_option_pongo_exit;
 			break;
@@ -163,21 +176,26 @@ int optparse(int argc, char* argv[]) {
 		case 'V':
 			palerain_flags |= palerain_option_verbose_boot;
 			force_use_verbose_boot = true;
+#ifdef TUI
+			tui_options_verbose_boot = true;
+#endif
 			break;
 		case 'e':
-			if (strstr(optarg, "rootdev=") != NULL) {
-				LOG(LOG_FATAL, "The boot arg rootdev= is already used by palera1n and cannot be overriden");
-				return -1;
-			} else if (strlen(optarg) > (sizeof(xargs_cmd) - 0x20)) {
+			if (strlen(optarg) > (sizeof(xargs_cmd) - 0x20)) {
                 LOG(LOG_FATAL, "Boot arguments too long");
                 return -1;
             }
 			snprintf(xargs_cmd, sizeof(xargs_cmd), "xargs %s", optarg);
+#ifdef TUI
+			snprintf(tui_options_boot_args, sizeof(tui_options_boot_args), "%s", optarg);
+#endif
 			break;
+#ifdef ROOTFUL
 		case 'f':
 			palerain_flags |= palerain_option_rootful;
 			palerain_flags &= ~palerain_option_rootless;
 			break;
+#endif
 		case 'l':
 			palerain_flags &= ~palerain_option_rootful;
 			palerain_flags |= palerain_option_rootless;
@@ -193,6 +211,12 @@ int optparse(int argc, char* argv[]) {
 			break;
 		case 's':
 			palerain_flags |= palerain_option_safemode;
+#ifdef TUI
+			tui_options_safe_mode = true;
+#endif
+			break;
+		case 'T':
+			palerain_flags |= palerain_option_telnetd;
 			break;
 		case 'k':
 			if (access(optarg, F_OK) != 0) {
@@ -200,18 +224,22 @@ int optparse(int argc, char* argv[]) {
 				return -1;
 			}
 			pongo_path = malloc(strlen(optarg) + 1);
-			strcpy(pongo_path, optarg);
+			if (pongo_path == NULL) {
+				LOG(LOG_FATAL, "memory allocation failed");
+				return -1;
+			}
+			snprintf(pongo_path, strlen(optarg) + 1, "%s", optarg);
 			break;
 		case 'o':
 			if (override_file(&override_overlay, overlay_to_upload, &binpack_dmg_len, optarg))
 				return 1;
 			break;
 		case 'r':
-			if (override_file(&override_ramdisk, ramdisk_to_upload, &ramdisk_dmg_len, optarg))
+			if (override_file(&override_ramdisk, ramdisk_to_upload, &ramdisk_dmg_lzma_len, optarg))
 				return 1;
 			break;
 		case 'K':
-			if (override_file(&override_kpf, kpf_to_upload, &checkra1n_kpf_pongo_len, optarg))
+			if (override_file(&override_kpf, kpf_to_upload, &checkra1n_kpf_pongo_lzma_len, optarg))
 				return 1;
 			struct mach_header_64* hdr = (struct mach_header_64*)override_kpf.ptr;
 			if (hdr->magic != MH_MAGIC_64 && hdr->magic != MH_CIGAM_64) {
@@ -283,6 +311,9 @@ int optparse(int argc, char* argv[]) {
 			palerain_flags |= palerain_option_tui;
 			break;
 #endif
+		case palerain_option_case_cli:
+			palerain_flags |= palerain_option_cli;
+			break;
 #ifdef DEV_BUILD
 		case '1':
 			palerain_flags |= palerain_option_test1;
@@ -293,9 +324,20 @@ int optparse(int argc, char* argv[]) {
 #endif
 		case palerain_option_case_force_revert:
 			palerain_flags |= palerain_option_force_revert;
+#ifdef TUI
+			tui_options_force_revert = true;
+#endif
 			break;
 		case palerain_option_case_version:
 			palerain_flags |= palerain_option_palerain_version;
+			break;
+		case palerain_option_case_libcheckra1nhelper_path:
+			printf("meow\n");
+			gOverrideLibcheckra1nHelper = calloc(1, strlen(optarg) + 1);
+			if (!gOverrideLibcheckra1nHelper) {
+				return -1;
+			}
+			snprintf(gOverrideLibcheckra1nHelper, strlen(optarg) + 1, "%s", optarg);
 			break;
 		default:
 			usage(1, argv[0]);
@@ -306,10 +348,8 @@ int optparse(int argc, char* argv[]) {
 		printf(
 			"palera1n " PALERAIN_VERSION "\n"
 			BUILD_COMMIT " " BUILD_NUMBER " (" BUILD_BRANCH ")\n\n"
-			"Build date: " BUILD_DATE "\n"
 			"Build style: " BUILD_STYLE "\n"
 			"Build tag: " BUILD_TAG "\n"
-			"Built by: " BUILD_WHOAMI "\n"
 #ifdef USE_LIBUSB
 			"USB backend: libusb\n"
 #else
@@ -320,31 +360,55 @@ int optparse(int argc, char* argv[]) {
 		return 0;
 	}
 
+	if (palerain_flags & palerain_option_telnetd) {
+		LOG(LOG_WARNING, "telnetd is enabled, this is a security hole");
+	}
+
 	if ((strstr(xargs_cmd, "serial=") != NULL) && !force_use_verbose_boot && (palerain_flags & palerain_option_setup_rootful)) {
 		palerain_flags &= ~palerain_option_verbose_boot;
+	}
+
+	if ((palerain_flags & (palerain_option_tui)) && (palerain_flags & (palerain_option_cli))) {
+		LOG(LOG_FATAL, "cannot specify both --tui and --cli");
+		return -1;
+	}
+
+	if ((palerain_flags & (palerain_option_exit_recovery | palerain_option_enter_recovery | palerain_option_reboot_device | palerain_option_device_info | palerain_option_dfuhelper_only | palerain_option_pongo_exit | palerain_option_pongo_full)) > 0) {
+		palerain_flags &= ~palerain_option_tui;
+		palerain_flags |= palerain_option_cli;
+	} else {
+#ifdef ROOTFUL
+		if ((palerain_flags & (palerain_option_rootless | palerain_option_rootful)) == 0) {
+			LOG(LOG_FATAL, "Please specify rootful (-f) or rootless (-l)");
+			return -1;
+		}
+#else
+		palerain_flags |= palerain_option_rootless;
+#endif
 	}
     
 	snprintf(palerain_flags_cmd, 0x30, "palera1n_flags 0x%" PRIx64, palerain_flags);
 	LOG(LOG_VERBOSE3, "palerain_flags: %s", palerain_flags_cmd);
 	if (override_kpf.magic == OVERRIDE_MAGIC) {
-		LOG(LOG_VERBOSE4, "kpf override length %u -> %u", override_kpf.orig_len, checkra1n_kpf_pongo_len);
+		LOG(LOG_VERBOSE4, "kpf override length %" PRIu32 " -> %" PRIu32, override_kpf.orig_len, checkra1n_kpf_pongo_lzma_len);
 		LOG(LOG_VERBOSE4, "kpf override ptr %p -> %p", override_kpf.orig_ptr, **kpf_to_upload);
 	}
 	if (override_ramdisk.magic == OVERRIDE_MAGIC) {
-		LOG(LOG_VERBOSE4, "ramdisk override length %u -> %u", override_ramdisk.orig_len, ramdisk_dmg_len);
+		LOG(LOG_VERBOSE4, "ramdisk override length %" PRIu32 " -> %" PRIu32, override_ramdisk.orig_len, ramdisk_dmg_lzma_len);
 		LOG(LOG_VERBOSE4, "ramdisk override ptr %p -> %p", override_ramdisk.orig_ptr, **ramdisk_to_upload);
 	}
 	if (override_overlay.magic == OVERRIDE_MAGIC) {
-		LOG(LOG_VERBOSE4, "overlay override length %u -> %u", override_overlay.orig_len, binpack_dmg_len);
+		LOG(LOG_VERBOSE4, "overlay override length %" PRIu32 " -> %" PRIu32, override_overlay.orig_len, binpack_dmg_len);
 		LOG(LOG_VERBOSE4, "overlay override ptr %p -> %p", override_overlay.orig_ptr, **overlay_to_upload);
 	}
-
+#ifdef ROOTFUL
 	if (!(palerain_flags & palerain_option_rootful)) {
 		if ((palerain_flags & palerain_option_setup_rootful)) {
 			LOG(LOG_FATAL, "Cannot setup rootful when rootless is requested. Use -f to enable rootful mode.");
 			return -1;
 		}
 	}
+#endif
 	if (!(
 			(palerain_flags & palerain_option_dfuhelper_only) ||
 			(palerain_flags & palerain_option_enter_recovery) ||
@@ -360,13 +424,20 @@ int optparse(int argc, char* argv[]) {
 		if (!((palerain_flags & palerain_option_pongo_exit) || (palerain_flags & palerain_option_pongo_exit)))
 		{
 #ifdef NO_KPF
-			if (checkra1n_kpf_pongo_len == 0)
+			if (checkra1n_kpf_pongo_lzma_len == 0)
 			{
 				LOG(LOG_FATAL, "kernel patchfinder omitted in build but no override specified");
 				return -1;
 			}
 #endif
 		}
+#endif
+
+#ifdef NO_EMBED_HELPER
+	if (libcheckra1nhelper_dylib_len == 0 && gOverrideLibcheckra1nHelper == NULL) {
+			LOG(LOG_FATAL, "checkra1n helper omitted in build but no override specified");
+			return -1;
+	}
 #endif
 	}
 

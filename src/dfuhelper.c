@@ -30,7 +30,13 @@
 #define FORMAT_KEY_VALUE 1
 #define FORMAT_XML 2
 
-#define NOHOME (cpid == 0x8015 || (cpid == 0x8010 && (bdid == 0x08 || bdid == 0x0a || bdid == 0x0c || bdid == 0x0e)))
+#define NO_PHYSICAL_HOME_BUTTON (cpid == 0x8015 || (cpid == 0x8010 && (bdid == 0x08 || bdid == 0x0a || bdid == 0x0c || bdid == 0x0e)))
+#define IS_APPLE_TV_HD (cpid == 0x7000 && bdid == 0x34)
+#define IS_APPLE_TV_4K (cpid == 0x8011 && bdid == 0x02)
+#define IS_APPLE_HOME1 (cpid == 0x7000 && bdid == 0x38)
+#define IS_APPLE_HOME2 (cpid == 0x7000 && bdid == 0x1a)
+#define IS_APPLE_HOME  (IS_APPLE_HOME1 || IS_APPLE_HOME1)
+#define IS_APPLETV (IS_APPLE_TV_4K || IS_APPLE_TV_HD || IS_APPLE_HOME)
 
 int dfuhelper_thr_running = false;
 
@@ -61,7 +67,7 @@ int connected_normal_mode(const usbmuxd_device_info_t *usbmuxd_device) {
 		LOG(LOG_ERROR, "Unable to get device information");
 		return 0;
 	}
-	if (strncmp(dev.CPUArchitecture, "arm64", strlen("arm64"))) {
+	if (strcmp(dev.CPUArchitecture, "arm64")) {
 		devinfo_free(&dev);
 		LOG(LOG_WARNING, "Ignoring non-arm64 device...");
 		LOG(LOG_WARNING, "palera1n doesn't and never will work on A12+ (arm64e)");
@@ -137,27 +143,66 @@ void* connected_recovery_mode(struct irecv_device_info* info) {
 		LOG(LOG_ERROR, "Cannot set auto-boot back to true");
 		return NULL;
 	}
+#if !defined(DFUHELPER_AUTO_ONLY)
+	if (IS_APPLE_TV_4K) {
+		LOG(LOG_INFO, "Depending on your connection method, you might need to press a button on your cable/board during reboot");
+	}
 	LOG(LOG_INFO, "Press Enter when ready for DFU mode");
 	getchar();
-	step(3, 0, "Get ready", NULL, 0);
-	if (NOHOME) 
-		step(4, 2, "Hold volume down + side button", NULL, 0);
-	else
-		step(4, 2, "Hold home + power button", NULL, 0);
-	set_ecid_wait_for_dfu(ecid);
-	ret = exitrecv_cmd(ecid);
-	if (ret) {
-		LOG(LOG_ERROR, "Cannot exit recovery mode");
-		set_ecid_wait_for_dfu(0);
-		return NULL;
-	}
-	printf("\r\033[K");
-	if (NOHOME) {
-		step(2, 0, "Hold volume down + side button", NULL, 0);
-		step(10, 0, "Hold volume down button", conditional, ecid);
-	} else {
-		step(2, 0, "Hold home + power button", NULL, 0);
-		step(10, 0, "Hold home button", conditional, ecid);
+#endif
+	if (IS_APPLETV) {
+		if (IS_APPLE_TV_HD) {
+			step(10, 8, "Hold menu + play button", NULL, 0);
+			set_ecid_wait_for_dfu(ecid);
+			ret = exitrecv_cmd(ecid);
+			if (ret) {
+				LOG(LOG_ERROR, "Cannot exit recovery mode");
+				set_ecid_wait_for_dfu(0);
+				return NULL;
+			}
+			printf("\r\033[K");
+			step(8, 0, "Hold menu + play button", conditional, ecid);
+		} else if (IS_APPLE_TV_4K) {
+			step(2, 0, "About to reboot device", NULL, 0);
+			set_ecid_wait_for_dfu(ecid);
+			ret = exitrecv_cmd(ecid);
+			if (ret) {
+				LOG(LOG_ERROR, "Cannot exit recovery mode");
+				set_ecid_wait_for_dfu(0);
+				return NULL;
+			}
+			step(4, 0, "Waiting for device to reconnect in DFU mode", conditional, ecid);
+		} else if (IS_APPLE_HOME) {
+			step(6, 4, "Put device in upside down orientation", NULL, 0);
+			set_ecid_wait_for_dfu(ecid);
+			ret = exitrecv_cmd(ecid);
+			if (ret) {
+				LOG(LOG_ERROR, "Cannot exit recovery mode");
+				set_ecid_wait_for_dfu(0);
+				return NULL;
+			}
+			step(4, 0, "Put device upside down orientation", conditional, ecid);
+		}
+	} else if (cpid != 0x8012) {
+		if (NO_PHYSICAL_HOME_BUTTON)
+			step(4, 2, "Hold volume down + side button", NULL, 0);
+		else
+			step(4, 2, "Hold home + power button", NULL, 0);
+		set_ecid_wait_for_dfu(ecid);
+		ret = exitrecv_cmd(ecid);
+		if (ret) {
+			LOG(LOG_ERROR, "Cannot exit recovery mode");
+			set_ecid_wait_for_dfu(0);
+			return NULL;
+		}
+		printf("\r\033[K");
+		if (NO_PHYSICAL_HOME_BUTTON) {
+			step(2, 0, "Hold volume down + side button", NULL, 0);
+			step(10, 0, "Hold volume down button", conditional, ecid);
+		} else {
+			step(2, 0, "Hold home + power button", NULL, 0);
+			step(10, 0, "Hold home button", conditional, ecid);
+		}
 	}
 	if (get_ecid_wait_for_dfu() == ecid) {
 		LOG(LOG_WARNING, "Whoops, device did not enter DFU mode");
@@ -175,6 +220,11 @@ void* connected_dfu_mode(struct irecv_device_info* info) {
 		set_ecid_wait_for_dfu(0);
 		puts("");
 		LOG(LOG_INFO, "Device entered DFU mode successfully");
+	}
+	unsigned int bdid = info->bdid;
+	unsigned int cpid = info->cpid;
+	if (IS_APPLE_HOME) {
+		step(2, 0, "Put device in upright orientation", NULL, 0);
 	}
 	set_spin(0);
 	unsubscribe_cmd();
@@ -218,7 +268,7 @@ void irecv_device_event_cb(const irecv_device_event_t *event, void* userdata) {
 				event->mode == IRECV_K_RECOVERY_MODE_3 || 
 				event->mode == IRECV_K_RECOVERY_MODE_4) {
 				if (!(palerain_flags & palerain_option_device_info))
-					LOG(LOG_VERBOSE, "Recovery mode device %ld connected", event->device_info->ecid);
+					LOG(LOG_VERBOSE, "Recovery mode device %" PRIu64 " connected", event->device_info->ecid);
 				if ((palerain_flags & palerain_option_exit_recovery)) {
 					ret = exitrecv_cmd(event->device_info->ecid);
 					if (!ret) {
@@ -258,7 +308,7 @@ void irecv_device_event_cb(const irecv_device_event_t *event, void* userdata) {
 				pthread_create(&recovery_thread, NULL, (pthread_start_t)connected_recovery_mode, event->device_info);
 			} else if (event->mode == IRECV_K_DFU_MODE) {
 				if (!(palerain_flags & palerain_option_device_info))
-					LOG(LOG_VERBOSE, "DFU mode device %ld connected", event->device_info->ecid);
+					LOG(LOG_VERBOSE, "DFU mode device %" PRIu64 " connected", event->device_info->ecid);
 
 				if ((palerain_flags & palerain_option_device_info)) {
 					recvinfo_t info;

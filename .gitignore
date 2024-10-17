@@ -4,6 +4,7 @@ dep_root/**
 !contrib/.keep
 contrib/
 *.o
+dep_root*.tgz
 .vscode
 checkra1n*
 payload.c
@@ -11,6 +12,7 @@ src/palera1n
 !xxd-embedded.h
 src/binpack.dmg
 src/ramdisk.dmg
+src/ramdisk.dmg.lzma
 src/xxd-*.c
 .DS_Store
 !palera1n.1
@@ -23,3 +25,5 @@ src/*.dmg.c
 src/stage2/
 src/libcheckra1nhelper.dylib*
 src/Pongo.bin
+sysroot
+compile.sh
